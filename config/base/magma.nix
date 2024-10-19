@@ -1,5 +1,5 @@
+{pkgs, ...}:
 {
-
 plugins.magma-nvim = {
   enable = true;
   package = pkgs.vimPlugins.magma-nvim-goose;
