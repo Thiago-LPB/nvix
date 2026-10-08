@@ -147,6 +147,14 @@ Plus:
 | Markdown | `marksman` | | mkdnflow, render-markdown, glow, markdown-preview, img-clip |
 | HTTP | | | kulala (REST client, lazy-loaded on `http`/`rest` ft) |
 
+### kulala variable ghost text
+
+Variable values render as inline inlay hints (`{{token}} -> : value`) via
+kulala's built-in LSP backed by the nixpkgs `kulala-core` binary. Neovim only
+refreshes inlay hints on text edits, but env switches and request scripts
+change values out-of-band, so a buffer-local `BufEnter`/`CursorHold` autocmd
+forces a refresh. The `<leader>uh` inlay-hint toggle is respected.
+
 ## noice
 
 UI replacement for cmdline, search, messages. Routes shell stdout/stderr
