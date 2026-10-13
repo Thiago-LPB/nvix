@@ -36,6 +36,15 @@ in
           }
         end
 
+      -- mirror yanks to the system clipboard without unnamedplus (which also made p read it)
+      vim.api.nvim_create_autocmd('TextYankPost', {
+        callback = function()
+          local ev = vim.v.event
+          if ev.operator == "y" and ev.regname == "" then
+            vim.fn.setreg('+', ev.regcontents, ev.regtype)
+          end
+        end,
+      })
 
       vim.opt.whichwrap:append("<>[]hl")
       vim.opt.listchars:append("space:·")
