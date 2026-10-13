@@ -20,12 +20,6 @@ in
       vim.api.nvim_set_hl(0, "DiagnosticUnderlineInfo",  { undercurl = true })
       vim.api.nvim_set_hl(0, "DiagnosticUnderlineHint",  { undercurl = true })
       vim.api.nvim_set_hl(0, "WhichKeyIcon", { link = "NONE", underline = false, undercurl = false })
-      local function my_paste(reg)
-        return function(lines)
-          local content = vim.fn.getreg('"')
-          return vim.split(content, '\n')
-        end
-      end
       if (os.getenv('SSH_TTY') ~= nil)
         then
           vim.g.clipboard = {
@@ -34,13 +28,13 @@ in
               ['+'] = require('vim.ui.clipboard.osc52').copy('+'),
               ['*'] = require('vim.ui.clipboard.osc52').copy('*'),
             },
+            -- tmux answers OSC 52 reads with its clipboard buffer (set-clipboard on)
             paste = {
-              ["+"] = my_paste("+"),
-              ["*"] = my_paste("*"),
+              ["+"] = require('vim.ui.clipboard.osc52').paste("+"),
+              ["*"] = require('vim.ui.clipboard.osc52').paste("*"),
             },
           }
         end
-
 
 
       vim.opt.whichwrap:append("<>[]hl")
@@ -54,7 +48,7 @@ in
 
   opts = {
 
-    clipboard = "unnamedplus";
+    # unnamedplus made p paste whatever the shell last OSC52-yanked; "+p is the deliberate clipboard paste
     cursorline = true;
     cursorlineopt = "number";
 
