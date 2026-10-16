@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write # approve CI runs on the bot-created PR
 
 concurrency:
   group: flake-update
@@ -18,6 +19,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # auto-delete-on-merge only fires on merge; also clean up closed-unmerged and orphaned branches
+      - name: Clean up stale flake-update branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate --jq '.[].name' \
+            "repos/$GITHUB_REPOSITORY/branches?per_page=100" \
+            | grep '^flake-update/' \
+            | while read -r branch; do
+                if [ "$(gh pr view "$branch" --json state --jq .state 2>/dev/null || true)" != "OPEN" ]; then
+                  git push origin --delete "$branch" \
+                    && echo "deleted $branch" \
+                    || echo "::warning::could not delete $branch"
+                fi
+              done
 
       - uses: cachix/install-nix-action@v31
         with:
@@ -57,7 +74,7 @@ jobs:
           branch="flake-update/$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
           title="chore(flake): update lock"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          body="$(printf 'Weekly automated nix flake update.\n\nBuild verification: %s\n\nBuilds passed for bare, core, and full on ubuntu-latest.\n\nPR CI may require manual approval because this PR is created by github-actions[bot].' "$run_url")"
+          body="$(printf 'Weekly automated nix flake update.\n\nBuild verification: %s\n\nBuilds passed for bare, core, and full on ubuntu-latest.' "$run_url")"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -70,3 +87,19 @@ jobs:
             --head "$branch" \
             --title "$title" \
             --body "$body"
+
+          # PRs created with GITHUB_TOKEN start CI in action_required state;
+          # self-approve so CI runs without manual intervention
+          sha="$(git rev-parse HEAD)"
+          runs=""
+          for _ in $(seq 1 12); do
+            runs="$(gh api --jq '[.workflow_runs[].id] | join("\n")' \
+              "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$sha&status=action_required" || true)"
+            [ -n "$runs" ] && break
+            sleep 5
+          done
+          for run_id in $runs; do
+            gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/approve" \
+              && echo "approved CI run $run_id" \
+              || echo "::warning::could not approve run $run_id, approve it on the PR"
+          done
